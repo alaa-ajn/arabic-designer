@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>المصمم العربي الاحترافي v8 (الحفظ التلقائي LocalStorage) 🎨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+      });
+    }
+  </script>
+</head>
+<body>
+<main class="app">
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">استوديو التصميم</p>
+      <h1>المصمم العربي الاحترافي <span>🎨</span></h1>
+      <p class="subtitle">صمّم نصوصك العربية فوق الصور واحفظها بالأبعاد التي تريدها.</p>
+    </div>
+    
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button id="saveProjectBtn" class="secondary-btn" style="margin-top:0;" type="button">📁 حفظ مشروع (JSON)</button>
+      <label for="loadProjectInput" class="secondary-btn" style="margin-top:0; cursor:pointer; display:inline-block;">📂 فتح مشروع
+        <input id="loadProjectInput" type="file" accept=".json" style="display:none;">
+      </label>
+      <button id="downloadBtn" class="primary-btn" type="button">💾 حفظ الصورة PNG</button>
+    </div>
+
+  </header>
+
+  <section class="workspace">
+    <div class="preview-card">
+      <div class="preview-heading">
+        <h2>معاينة التصميم</h2>
+        <span class="live-dot">معاينة مباشرة</span>
+      </div>
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="editorCanvas" width="1920" height="1080" style="touch-action: none;" aria-label="معاينة التصميم"></canvas>
+      </div>
+      <div class="size-summary">
+        <span id="dimensionLabel">الأبعاد: 1920 × 1080</span>
+        <span id="ratioLabel">النسبة: 16:9 أفقي</span>
+      </div>
+      <p class="hint">يختفي مربع التحديد المتقطع تلقائيًا بمجرد رفع إصبعك لتظل الصورة خالية تماماً من الحدود.</p>
+    </div>
+
+    <div class="editor-card">
+      <nav class="nav-tabs" aria-label="أقسام التحرير">
+        <button class="tab-btn active" data-tab="text-tab" type="button">✍️ النصوص</button>
+
+        <button class="tab-btn" data-tab="color-tab" type="button">🎨 الألوان والأنماط</button>
+        <button class="tab-btn" data-tab="font-tab" type="button">🔤 الخطوط</button>
+        <button class="tab-btn" data-tab="filters-tab" type="button">✨ الفلاتر والتأثيرات</button>
+        <button class="tab-btn" data-tab="stickers-tab" type="button">⭐ الملصقات</button>
+        <button class="tab-btn" data-tab="image-tab" type="button">🖼️ الخلفية</button>
+      </nav>
+
+      <section id="text-tab" class="panel-content active">
+        <div class="section-heading">أبعاد ساحة العمل</div>
+        <div class="ratio-selector">
+          <button id="ratioLandscape" class="ratio-btn active" type="button">
+            <span class="ratio-icon landscape-icon"></span><strong>16:9 أفقي</strong><small>1920 × 1080</small>
+          </button>
+          <button id="ratioPortrait" class="ratio-btn" type="button">
+            <span class="ratio-icon portrait-icon"></span><strong>9:16 عمودي</strong><small>1080 × 1920</small>
+          </button>
+        </div>
+
+        <div class="layers-toolbar">
+          <div class="section-heading">طبقات النصوص</div>
+          <button id="addLayerBtn" class="secondary-btn add-layer-btn" type="button">＋ إضافة نص جديد</button>
+        </div>
+        <div id="layerList" class="layer-list" aria-label="قائمة النصوص"></div>
+        <div class="layer-actions">
+          <button id="duplicateLayerBtn" class="small-action-btn" type="button">⧉ نسخ النص</button>
+          <button id="deleteLayerBtn" class="small-action-btn danger-btn" type="button">🗑 حذف النص</button>
+          <button id="moveLayerUpBtn" class="small-action-btn" type="button">↑ تقديم</button>
+          <button id="moveLayerDownBtn" class="small-action-btn" type="button">↓ تأخير</button>
+        </div>
+        <label for="textInput">محتوى النص المحدد</label>
+        <input id="textInput" type="text" maxlength="180" placeholder="اكتب النص هنا...">
+        <div class="field-row">
+          <label for="fontSize">حجم الخط <output id="fontSizeVal">70 px</output></label>
+          <input id="fontSize" type="range" min="20" max="800" value="70">
+        </div>
+
+        <div class="field-row">
+          <label for="rotationSlider">زاوية الدوران <output id="rotationVal">0°</output></label>
+          <input id="rotationSlider" type="range" min="-180" max="180" value="0">
+        </div>
+
+        <div class="field-row">
+          <label for="xSlider">الموقع الأفقي <output id="xSliderVal">50%</output></label>
+          <input id="xSlider" type="range" min="0" max="100" value="50">
+        </div>
+        <div class="field-row">
+          <label for="ySlider">الموقع الرأسي <output id="ySliderVal">30%</output></label>
+          <input id="ySlider" type="range" min="0" max="100" value="30">
+        </div>
+
+        
+        <div class="section-group" style="margin-top:15px;">
+          <div class="section-heading">⚙️ محاذاة وتنسيق النص</div>
+          <div class="rotate-quick-btn-group">
+            <button id="alignLeftBtn" class="small-action-btn" type="button">◀ يسار</button>
+            <button id="alignCenterBtn" class="small-action-btn" type="button">⏺ وسط</button>
+            <button id="alignRightBtn" class="small-action-btn" type="button">يمين ▶</button>
+          </div>
+          <div class="rotate-quick-btn-group" style="margin-top:8px;">
+            <button id="boldToggleBtn" class="small-action-btn" type="button"><b>B عريض</b></button>
+            <button id="italicToggleBtn" class="small-action-btn" type="button"><i>I مائل</i></button>
+            <button id="centerPosBtn" class="small-action-btn" type="button">🎯 تمركز في المنتصف</button>
+          </div>
+          <div class="field-row">
+            <label for="opacitySlider">شفافية الطبقة <output id="opacityVal">100%</output></label>
+            <input id="opacitySlider" type="range" min="0" max="100" value="100">
+          </div>
+        </div>
+
+        <div class="move-controls-wrapper">
+          <p class="control-title">تحريك وتدوير النص المحدد</p>
+          <div class="move-controls">
+            <span></span><button class="move-btn" data-move="up" aria-label="أعلى" type="button">▲</button><span></span>
+            <button class="move-btn" data-move="left" aria-label="يسار" type="button">◀</button>
+            <button class="move-btn reset-btn" data-move="reset" aria-label="إعادة ضبط" type="button">↺</button>
+            <button class="move-btn" data-move="right" aria-label="يمين" type="button">▶</button>
+            <span></span><button class="move-btn" data-move="down" aria-label="أسفل" type="button">▼</button><span></span>
+          </div>
+          <div class="rotate-quick-btn-group">
+            <button id="rotateLeftBtn" class="small-action-btn" type="button">↺ تدوير يسار (-15°)</button>
+            <button id="rotateResetBtn" class="small-action-btn" type="button">🎯 إرجاع الزاوية (0°)</button>
+            <button id="rotateRightBtn" class="small-action-btn" type="button">↻ تدوير يمين (+15°)</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="color-tab" class="panel-content">
+        <div class="selected-layer-label">تعديل ألوان وحدود: <strong id="selectedLayerColorName">النص 1</strong></div>
+
+        <!-- 🌟 قسم أنماط النص الجاهزة (15 نمط احترافي) -->
+        <div class="section-group" style="margin-top: 14px;">
+          <div class="section-heading">⭐ أنماط النص الجاهزة (15 نمط احترافي)</div>
+          <p class="hint" style="margin-bottom: 10px;">اضغط على أي نمط لتطبيقه مباشرة على النص المحدد:</p>
+          <div class="style-presets-grid" id="stylePresetsGrid"></div>
+        </div>
+
+        <p class="hint color-hint">تعديل الألوان والتفاصيل اليدوية للنص المحدد:</p>
+
+        <div class="color-grid">
+          <div class="color-item"><label for="textColor">لون التعبئة الداخلية</label><input id="textColor" type="color" value="#ffffff"></div>
+
+        <div class="toggle-row" style="margin-top:10px;">
+          <label for="gradientToggle">تفعيل التدرج اللوني (Gradient Fill)</label>
+          <input id="gradientToggle" type="checkbox">
+        </div>
+        <div class="color-grid" id="gradientColorsGroup" style="display:none; margin-top:8px;">
+          <div class="color-item"><label for="gradColor1">اللون الأول (أعلى)</label><input id="gradColor1" type="color" value="#ffd54f"></div>
+          <div class="color-item"><label for="gradColor2">اللون الثاني (أسفل)</label><input id="gradColor2" type="color" value="#ff6f00"></div>
+        </div>
+
+          <div class="color-item"><label for="strokeColor">لون الحد الأول</label><input id="strokeColor" type="color" value="#ff5722"></div>
+          <div class="color-item"><label for="strokeColor2">لون الحد الخارجي</label><input id="strokeColor2" type="color" value="#111111"></div>
+        </div>
+        <div class="field-row">
+          <label for="strokeWidth">سُمك الحد الأول <output id="strokeWidthVal">8 px</output></label>
+          <input id="strokeWidth" type="range" min="0" max="40" value="8">
+        </div>
+        <div class="field-row">
+          <label for="strokeWidth2">سُمك الحد الخارجي <output id="strokeWidth2Val">15 px</output></label>
+          <input id="strokeWidth2" type="range" min="0" max="55" value="15">
+        </div>
+      </section>
+
+      <section id="font-tab" class="panel-content">
+        <label for="fontSelect">خط النص المحدد</label>
+        <select id="fontSelect">
+          <option value="Cairo">القاهرة — Cairo</option>
+          <option value="Almarai">المراعي — Almarai</option>
+          <option value="Tajawal">تجوال — Tajawal</option>
+          <option value="Amiri">أميري — Amiri</option>
+          <option value="Arial">Arial</option>
+        </select>
+        <div class="file-input-wrapper">
+          <label for="fontUpload">إضافة خط من جهازك (.ttf / .otf / .woff / .woff2)</label>
+          <input id="fontUpload" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2">
+          <p class="hint">الخط المرفوع متاح خلال جلسة الصفحة الحالية، ويمكن اختياره لكل نص على حدة.</p>
+        </div>
+      </section>
+
+      <section id="filters-tab" class="panel-content">
+        <!-- 1. فلاتر سينمائية -->
+        <div class="section-group">
+          <div class="section-heading">🎬 فلاتر سينمائية</div>
+          <div class="preset-buttons" id="cinematicFilters">
+            <button class="preset-btn active" data-preset="none">عادي</button>
+            <button class="preset-btn" data-preset="cinematic">سينمائي</button>
+            <button class="preset-btn" data-preset="cool">ألوان باردة</button>
+            <button class="preset-btn" data-preset="warm">ألوان دافئة</button>
+            <button class="preset-btn" data-preset="dramatic">درامي</button>
+            <button class="preset-btn" data-preset="night">ليلي</button>
+            <button class="preset-btn" data-preset="vintage">سينمائي كلاسيكي</button>
+            <button class="preset-btn" data-preset="cyberpunk">سايبر بانك</button>
+          </div>
+        </div>
+
+        <!-- 2. فلاتر الألوان -->
+        <div class="section-group">
+          <div class="section-heading">🎨 فلاتر الألوان</div>
+          <div class="preset-buttons" id="colorFilters">
+            <button class="preset-btn" data-preset="bw">أبيض وأسود</button>
+            <button class="preset-btn" data-preset="sepia">بني قديم</button>
+            <button class="preset-btn" data-preset="saturate">تشبع قوي</button>
+            <button class="preset-btn" data-preset="fade">باهت</button>
+            <button class="preset-btn" data-preset="invert">عكس الألوان</button>
+            <button class="preset-btn" data-preset="pop">ألوان زاهية Pop</button>
+          </div>
+        </div>
+
+        <!-- 3. تأثيرات الصورة وخيارات الضبط -->
+        <div class="section-group">
+          <div class="section-heading">🖼️ تأثيرات الصورة وخيارات الضبط</div>
+          <div class="field-row">
+            <label for="filterIntensity">قوة الفلتر <output id="filterIntensityVal">100%</output></label>
+            <input id="filterIntensity" type="range" min="0" max="100" value="100">
+          </div>
+          <div class="field-row">
+            <label for="bgBlur">ضبابية / تمويه (Blur) <output id="bgBlurVal">0 px</output></label>
+            <input id="bgBlur" type="range" min="0" max="30" value="0">
+          </div>
+          <div class="field-row">
+            <label for="vignette">تمويه الأطراف / Vignette <output id="vignetteVal">0%</output></label>
+            <input id="vignette" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="field-row">
+            <label for="contrast">حدّة / التباين (Contrast) <output id="contrastVal">100%</output></label>
+            <input id="contrast" type="range" min="50" max="200" value="100">
+          </div>
+          <div class="field-row">
+            <label for="saturation">التشبع اللوني (Saturation) <output id="saturationVal">100%</output></label>
+            <input id="saturation" type="range" min="0" max="200" value="100">
+          </div>
+          <button id="resetFiltersBtn" class="secondary-btn" type="button">↺ إعادة ضبط الفلاتر</button>
+        </div>
+
+        <!-- 4. تأثيرات النص -->
+        <div class="section-group">
+          <div class="section-heading">✍️ تأثيرات النص المحدد</div>
+          <div class="toggle-row">
+            <label for="textShadowToggle">ظل النص (Shadow)</label>
+            <input id="textShadowToggle" type="checkbox" checked>
+          </div>
+          <div class="toggle-row">
+            <label for="textGlowToggle">توهج النص (Glow)</label>
+            <input id="textGlowToggle" type="checkbox">
+          </div>
+          <div class="toggle-row">
+            <label for="text3DToggle">تأثير ثلاثي الأبعاد (3D Depth)</label>
+            <input id="text3DToggle" type="checkbox">
+          </div>
+        </div>
+      </section>
+
+                  <section id="stickers-tab" class="panel-content">
+        <div class="section-group">
+          <div class="section-heading">⭐ ملصقات وأيقونات جاهزة</div>
+          <p class="hint" style="margin-bottom: 10px;">اضغط على أي ملصق لإضافته مباشرة فوق الصورة:</p>
+          <div class="stickers-grid" id="stickersGrid"></div>
+        </div>
+
+        <div class="section-group">
+          <div class="section-heading">🔍 التحكم بحجم الملصق المحدد</div>
+          <div class="field-row">
+            <label for="stickerSizeSlider">حجم الملصق <output id="stickerSizeVal">180 px</output></label>
+            <input id="stickerSizeSlider" type="range" min="20" max="800" value="180">
+          </div>
+          <div class="rotate-quick-btn-group" style="margin-top:10px;">
+            <button id="stickerScaleHalfBtn" class="small-action-btn" type="button">🔍 تصغير (50%)</button>
+            <button id="stickerScaleDoubleBtn" class="small-action-btn" type="button">🚀 مضاعفة الحجم (2x)</button>
+            <button id="stickerScaleTripleBtn" class="small-action-btn" type="button">💥 تكبير ضخم (3x)</button>
+          </div>
+        </div>
+
+        <div class="file-input-wrapper">
+          <label for="stickerUpload">📁 إضافة ملصق أو شعار من جهازك (.png / .svg / .jpg)</label>
+          <input id="stickerUpload" type="file" accept="image/*">
+          <p class="hint">يمكنك إضافة شعارك الخاص أو أي ملصق مفرّغ وتحريكه وتكبيره بسهولة.</p>
+        </div>
+      
+        <div class="section-group">
+          <div class="section-heading">⚡ خيارات متقدمة للملصق</div>
+          <div class="rotate-quick-btn-group">
+            <button id="flipHBtn" class="small-action-btn" type="button">↔️ انعكاس أفقي</button>
+            <button id="flipVBtn" class="small-action-btn" type="button">↕️ انعكاس رأسي</button>
+            <button id="centerStickerBtn" class="small-action-btn" type="button">🎯 تمركز في المنتصف</button>
+          </div>
+          <div class="toggle-row" style="margin-top:10px;">
+            <label for="stickerShadowToggle">ظل خفيف للملصق</label>
+            <input id="stickerShadowToggle" type="checkbox">
+          </div>
+        </div>
+
+      </section>
+
+      <section id="image-tab" class="panel-content">
+        <label for="bgUpload" class="upload-label">🖼️ اختيار صورة خلفية</label>
+        <input id="bgUpload" type="file" accept="image/*">
+        <div class="field-row">
+          <label for="bgBrightness">سطوع الخلفية <output id="bgBrightnessVal">100%</output></label>
+          <input id="bgBrightness" type="range" min="10" max="200" value="100">
+        </div>
+        <button id="clearBgBtn" class="secondary-btn" type="button">إزالة الخلفية</button>
+        <p class="hint">تُقص الخلفية تلقائيًا لتملأ أبعاد ساحة العمل المختارة.</p>
+      </section>
+      <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+  <footer>المصمم العربي الاحترافي · يعمل داخل المتصفح</footer>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
